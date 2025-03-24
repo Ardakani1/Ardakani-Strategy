@@ -1,0 +1,101 @@
+//@version=5
+strategy(title="Ardakani Dual Condition Strategy", shorttitle="Ardakani Strategy", overlay=true)
+
+// Input parameters
+basePeriods = input.int(100, minval=1, title="Base Line Length 100")
+basePeriods2 = input.int(5, minval=1, title="Base Line Length 5")
+atrLength = input.int(21, minval=1, title="ATR Length")
+
+// Donchian function
+donchian(len) => math.avg(ta.lowest(len), ta.highest(len))
+donchian1(len) => math.avg(ta.highest(len), ta.lowest(len))
+
+// Base Line calculation
+baseLine = donchian(basePeriods)
+
+// Second Base Line calculation
+baseLine2 = donchian1(basePeriods2)
+
+// ATR calculation
+atrValue = ta.atr(atrLength)
+
+// Plot Base Lines
+plot(baseLine, color=color.red, title="Base Line 100")
+plot(baseLine2, color=color.green, title="Base Line 5")
+
+// Check for crossovers with baseLine
+crossAbove = ta.crossover(close, baseLine)
+crossBelow = ta.crossunder(close, baseLine)
+
+// Check for crossovers between baseLine and baseLine2
+crossBaseLinesAbove = ta.crossover(baseLine2, baseLine)
+crossBaseLinesBelow = ta.crossunder(baseLine2, baseLine)
+
+// Plot markers for crossovers
+plotshape(series=crossAbove, location=location.belowbar, color=color.green, style=shape.labelup, title="Price Crosses Above Base Line 100", text="▲", textcolor=color.white)
+plotshape(series=crossBelow, location=location.abovebar, color=color.red, style=shape.labeldown, title="Price Crosses Below Base Line 100", text="▼", textcolor=color.white)
+plotshape(series=crossBaseLinesAbove, location=location.belowbar, color=color.blue, style=shape.labelup, title="Base Line 5 Crosses Above Base Line 100", text="▲", textcolor=color.white)
+plotshape(series=crossBaseLinesBelow, location=location.abovebar, color=color.orange, style=shape.labeldown, title="Base Line 5 Crosses Below Base Line 100", text="▼", textcolor=color.white)
+
+// Variables to store the state of conditions
+var bool condition1Met = false
+var bool condition2Met = false
+
+// Update the state of the conditions
+if (crossAbove)
+    condition1Met := true
+if (crossBaseLinesAbove)
+    condition2Met := true
+
+// Reset the state if the conditions are not met
+if (crossBelow or crossBaseLinesBelow)
+    condition1Met := false
+    condition2Met := false
+
+// Strategy: Enter long when both conditions are met
+if (condition1Met and condition2Met)
+    strategy.entry("Long", strategy.long)
+    condition1Met := false
+    condition2Met := false
+
+// Strategy: Exit long on cross below
+if (crossBelow)
+    strategy.close("Long")
+
+// Update the state of the conditions
+if (crossBelow)
+    condition1Met := true
+if (crossBaseLinesBelow)
+    condition2Met := true
+
+// Reset the state if the conditions are not met
+if (crossAbove or crossBaseLinesAbove)
+    condition1Met := false
+    condition2Met := false
+
+// Strategy: Enter short when both conditions are met
+if (condition1Met and condition2Met)
+    strategy.entry("Short", strategy.short)
+    condition1Met := false
+    condition2Met := false
+
+// Display ATR value in the top-left corner
+var label atrLabel = na
+if (na(atrLabel))
+    atrLabel := label.new(x=bar_index, y=high, text="ATR: " + str.tostring(atrValue, format.mintick), xloc=xloc.bar_index, yloc=yloc.price, color=color.blue, style=label.style_label_left, textcolor=color.white, size=size.normal)
+else
+    label.set_xy(atrLabel, x=bar_index, y=high)
+    label.set_text(atrLabel, "ATR: " + str.tostring(atrValue, format.mintick))
+
+// Calculate and plot slope of Base Line 5
+slopeBaseLine2 = baseLine2 - baseLine2[1]
+slopeText = "Slope: " + str.tostring(slopeBaseLine2, format.mintick)
+
+// Display slope value as a label on the chart
+var label slopeLabel = na
+if (na(slopeLabel))
+    slopeLabel := label.new(x=bar_index, y=baseLine2, text=slopeText, xloc=xloc.bar_index, yloc=yloc.price, color=color.green, style=label.style_label_left, textcolor=color.white, size=size.small)
+else
+    label.set_xy(slopeLabel, x=bar_index, y=baseLine2)
+    label.set_text(slopeLabel, slopeText)
+
